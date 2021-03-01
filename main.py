@@ -17,58 +17,76 @@ app = FastAPI()
 
 def db_connect():
     con = psycopg2.connect(
-        host="ec2-52-70-67-123.compute-1.amazonaws.com",
-        database="d68nmk23reqak4",
-        user="egnnjetsqjwwji",
+        host="ec2-99-80-200-225.eu-west-1.compute.amazonaws.com",
+        database="d5ppvv9153vvm5",
+        user="zecuqgzzqzqckp",
         port="5432",
-        password="dcf3bd216bd19303409eb66b094b902d35610feb0fab452eb46365592829061b"
+        password="6f7405fe16301e491c64acd59f74881ec9a405ad70293f3d9bbbcd02875e4b22"
     )
     cur = con.cursor()
     return con, cur
 
 
-@app.post("/users/insert")
-def insert_user(user: User):
-    con, cur = db_connect()
-    cur.execute(f"INSERT INTO users VALUES ('{user.username}', '{user.name}', '{user.surname}',"
-                f"'{user.group}', {user.user_id})")
-    con.commit()
-    con.close()
-    return user
+@app.get("/create")
+def create_tables():
+    try:
+        con, cur = db_connect()
+        cur.execute("CREATE TABLE IF NOT EXISTS users(user_id INTEGER, score INTEGER)")
+        con.commit()
+        cur.close()
+        con.close()
+        return "Success"
+    except Exception:
+        return "Failed"
 
 
-@app.get("/users/del/{user_id}")
-def delete_user(user_id: int):
-    con, cur = db_connect()
-    cur.execute(f"DELETE FROM users WHERE ids={user_id}")
-    con.commit()
-    con.close()
-    return "Success"
+@app.get("/get/users/new_user")
+def insert_user(user_id: int):
+    try:
+        con, cur = db_connect()
+        cur.execute(f"INSERT INTO users VALUES ('{user_id}', '{0}')")
+        con.commit()
+        con.close()
+        return "Success"
+    except Exception:
+        return "Failed"
 
 
-@app.get("/users/get/{user_id}")
-def get_user(user_id: int):
-    con, cur = db_connect()
-    cur.execute(f"SELECT * FROM users WHERE ids={user_id}")
-    res = cur.fetchall()
-    res_dict = {}
-    for j in res:
-        res_dict.update({f"user {j[0]}": {"username": j[0], "name": j[1], "surname": j[2],
-                                          "group": j[3], "user_id": j[4]}})
-    con.close()
-    return res_dict
+@app.get("/get/users/score")
+def get_user_score(user_id: int):
+    try:
+        con, cur = db_connect()
+        cur.execute(f"SELECT score FROM users WHERE user_id={user_id}")
+        res = cur.fetchone()[0]
+        cur.close()
+        con.close()
+        return res
+    except Exception:
+        return "Failed"
 
 
-@app.get("/users/get")
-def get_users():
-    con, cur = db_connect()
-    cur.execute("SELECT * FROM users")
-    res = cur.fetchall()
-    _dict = [{"user": "null"}]
-    for j in range(len(res)):
-        res_dict = {"username": res[j][0], "name": res[j][1], "surname": res[j][2], "group": res[j][3],
-                    "user_id": res[j][4]}
-        _dict[j]["user"] = res_dict
-        _dict.append({"user": "null"})
-    con.close()
-    return _dict[:-1]
+@app.get("/get/users/top")
+def get_user():
+    try:
+        con, cur = db_connect()
+        cur.execute(f"SELECT * FROM users ORDER BY score LIMIT 20")
+        res = cur.fetchall()
+        res_dict = {}
+        for j in res:
+            res_dict.update({f"user {j[0]}": {"username": j[0], "score": j[1]}})
+        con.close()
+        return res_dict
+    except Exception:
+        return "Failed"
+
+
+@app.get("/update/users/score")
+def fff(user_id: int):
+    try:
+        con, cur = db_connect()
+        cur.execute(f"UPDATE users SET score=score+1 WHERE user_id={user_id}")
+        cur.close()
+        con.close()
+        return "Success"
+    except Exception:
+        return "Failed"
