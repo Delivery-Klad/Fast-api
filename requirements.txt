@@ -1,4 +1,4 @@
--psycopg2-binary
--pydantic
--fastapi
--uvicorn
+psycopg2-binary
+pydantic
+fastapi
+uvicorn
