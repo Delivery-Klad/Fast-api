@@ -5,11 +5,8 @@ import psycopg2
 
 
 class User(BaseModel):
-    username: str
-    name: str
-    surname: str
-    group: str
     user_id: int
+    score: int
 
 
 app = FastAPI()
