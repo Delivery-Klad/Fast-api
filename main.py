@@ -1,8 +1,12 @@
+import os
 from typing import Optional
-from fastapi import Depends, FastAPI
+from fastapi import Depends, FastAPI, HTTPException, Security
 from pydantic import BaseModel
 import psycopg2
-from fastapi.security import OAuth2PasswordBearer
+from fastapi.security import OAuth2PasswordBearer, HTTPAuthorizationCredentials, HTTPBearer
+import jwt
+from passlib.context import CryptContext
+from datetime import datetime, timedelta
 
 
 class User(BaseModel):
@@ -10,8 +14,43 @@ class User(BaseModel):
     score: int
 
 
+class AuthDetails(BaseModel):
+    username: str
+    password: str
+
+
+class Auth:
+    security = HTTPBearer()
+    pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+    secret = 'SECRET'
+
+    def get_password_hash(self, password):
+        return self.pwd_context.hash(password)
+
+    def verify_password(self, plain_password, hashed_password):
+        return self.pwd_context.verify(plain_password, hashed_password)
+
+    def encode_token(self, user_id):
+        payload = {
+            'exp': datetime.utcnow() + timedelta(days=0, minutes=5),
+            'iat': datetime.utcnow(), 'sub': user_id
+        }
+        return jwt.encode(payload, self.secret, algorithm='HS256')
+
+    def decode_token(self, token):
+        try:
+            payload = jwt.decode(token, self.secret, algorithms=['HS256'])
+            return payload['sub']
+        except jwt.ExpiredSignatureError:
+            raise HTTPException(status_code=401, detail='Signature has expired')
+        except jwt.InvalidTokenError as e:
+            raise HTTPException(status_code=401, detail='Invalid token')
+
+    def auth_wrapper(self, auth: HTTPAuthorizationCredentials = Security(security)):
+        return self.decode_token(auth.credentials)
+
+
 app = FastAPI()
-oauth2 = OAuth2PasswordBearer(tokenUrl="token")
 
 
 def db_connect():
@@ -65,9 +104,8 @@ def get_user_score(user_id: int):
 
 
 @app.get("/get/users/top")
-def get_user(token: str = Depends(oauth2)):
+def get_user():
     try:
-        print(token)
         con, cur = db_connect()
         cur.execute(f"SELECT * FROM users ORDER BY score LIMIT 20")
         res = cur.fetchall()
@@ -90,3 +128,30 @@ def fff(user_id: int):
         return "Success"
     except Exception:
         return "Failed"
+
+
+auth_handler = Auth()
+users = [{"username": os.environ.get('API_USER'), "password": os.environ.get('API_HASH')}]
+
+
+@app.post('/login')
+def login(auth_details: AuthDetails):
+    user = None
+    for x in users:
+        if x['username'] == auth_details.username:
+            user = x
+            break
+    if (user is None) or (not auth_handler.verify_password(auth_details.password, user['password'])):
+        raise HTTPException(status_code=401, detail='Invalid username and/or password')
+    token = auth_handler.encode_token(user['username'])
+    return {'token': token}
+
+
+@app.get('/unprotected')
+def unprotected():
+    return {'hello': 'world'}
+
+
+@app.get('/protected')
+def protected(username=Depends(auth_handler.auth_wrapper)):
+    return {'name': username}
