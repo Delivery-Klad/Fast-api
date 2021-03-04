@@ -121,7 +121,7 @@ def get_user(username=Depends(auth_handler.auth_wrapper)):
 
 
 @app.get("/update/users/score")
-def fff(user_id: int, username=Depends(auth_handler.auth_wrapper)):
+def get_user_score(user_id: int, username=Depends(auth_handler.auth_wrapper)):
     try:
         con, cur = db_connect()
         cur.execute(f"UPDATE users SET score=score+1 WHERE user_id={user_id}")
