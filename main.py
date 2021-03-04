@@ -147,11 +147,6 @@ def login(auth_details: AuthDetails):
     return {'token': token}
 
 
-@app.get('/unprotected')
-def unprotected():
-    return {'hello': 'world'}
-
-
 @app.get('/protected')
 def protected(username=Depends(auth_handler.auth_wrapper)):
     return {'name': username}
