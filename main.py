@@ -51,6 +51,8 @@ class Auth:
 
 
 app = FastAPI()
+auth_handler = Auth()
+users = [{"username": os.environ.get('API_USER'), "password": os.environ.get('API_HASH')}]
 
 
 def db_connect():
@@ -66,7 +68,7 @@ def db_connect():
 
 
 @app.get("/create")
-def create_tables():
+def create_tables(username=Depends(auth_handler.auth_wrapper)):
     try:
         con, cur = db_connect()
         cur.execute("CREATE TABLE IF NOT EXISTS users(user_id INTEGER, score INTEGER)")
@@ -79,7 +81,7 @@ def create_tables():
 
 
 @app.get("/get/users/new_user")
-def insert_user(user_id: int):
+def insert_user(user_id: int, username=Depends(auth_handler.auth_wrapper)):
     try:
         con, cur = db_connect()
         cur.execute(f"INSERT INTO users VALUES ('{user_id}', '{0}')")
@@ -91,7 +93,7 @@ def insert_user(user_id: int):
 
 
 @app.get("/get/users/score")
-def get_user_score(user_id: int):
+def get_user_score(user_id: int, username=Depends(auth_handler.auth_wrapper)):
     try:
         con, cur = db_connect()
         cur.execute(f"SELECT score FROM users WHERE user_id={user_id}")
@@ -104,7 +106,7 @@ def get_user_score(user_id: int):
 
 
 @app.get("/get/users/top")
-def get_user():
+def get_user(username=Depends(auth_handler.auth_wrapper)):
     try:
         con, cur = db_connect()
         cur.execute(f"SELECT * FROM users ORDER BY score LIMIT 20")
@@ -119,7 +121,7 @@ def get_user():
 
 
 @app.get("/update/users/score")
-def fff(user_id: int):
+def fff(user_id: int, username=Depends(auth_handler.auth_wrapper)):
     try:
         con, cur = db_connect()
         cur.execute(f"UPDATE users SET score=score+1 WHERE user_id={user_id}")
@@ -128,10 +130,6 @@ def fff(user_id: int):
         return "Success"
     except Exception:
         return "Failed"
-
-
-auth_handler = Auth()
-users = [{"username": os.environ.get('API_USER'), "password": os.environ.get('API_HASH')}]
 
 
 @app.post('/login')
