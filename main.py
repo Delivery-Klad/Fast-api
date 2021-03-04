@@ -1,7 +1,8 @@
 from typing import Optional
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI
 from pydantic import BaseModel
 import psycopg2
+from fastapi.security import OAuth2PasswordBearer
 
 
 class User(BaseModel):
@@ -10,6 +11,7 @@ class User(BaseModel):
 
 
 app = FastAPI()
+oauth2 = OAuth2PasswordBearer(tokenUrl="token")
 
 
 def db_connect():
@@ -63,8 +65,9 @@ def get_user_score(user_id: int):
 
 
 @app.get("/get/users/top")
-def get_user():
+def get_user(token: str = Depends(oauth2)):
     try:
+        print(token)
         con, cur = db_connect()
         cur.execute(f"SELECT * FROM users ORDER BY score LIMIT 20")
         res = cur.fetchall()
