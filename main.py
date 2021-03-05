@@ -1,53 +1,9 @@
 import os
 from typing import Optional
-from fastapi import Depends, FastAPI, HTTPException, Security
-from pydantic import BaseModel
+from fastapi import Depends, FastAPI, HTTPException
 import psycopg2
-from fastapi.security import OAuth2PasswordBearer, HTTPAuthorizationCredentials, HTTPBearer
-import jwt
-from passlib.context import CryptContext
-from datetime import datetime, timedelta
-
-
-class User(BaseModel):
-    user_id: int
-    score: int
-
-
-class AuthDetails(BaseModel):
-    username: str
-    password: str
-
-
-class Auth:
-    security = HTTPBearer()
-    pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-    secret = 'SECRET'
-
-    def get_password_hash(self, password):
-        return self.pwd_context.hash(password)
-
-    def verify_password(self, plain_password, hashed_password):
-        return self.pwd_context.verify(plain_password, hashed_password)
-
-    def encode_token(self, user_id):
-        payload = {
-            'exp': datetime.utcnow() + timedelta(days=0, minutes=5),
-            'iat': datetime.utcnow(), 'sub': user_id
-        }
-        return jwt.encode(payload, self.secret, algorithm='HS256')
-
-    def decode_token(self, token):
-        try:
-            payload = jwt.decode(token, self.secret, algorithms=['HS256'])
-            return payload['sub']
-        except jwt.ExpiredSignatureError:
-            raise HTTPException(status_code=401, detail='Signature has expired')
-        except jwt.InvalidTokenError as e:
-            raise HTTPException(status_code=401, detail='Invalid token')
-
-    def auth_wrapper(self, auth: HTTPAuthorizationCredentials = Security(security)):
-        return self.decode_token(auth.credentials)
+from Auth import Auth
+from models import *
 
 
 app = FastAPI()
@@ -125,6 +81,7 @@ def get_user_score(user_id: int, username=Depends(auth_handler.auth_wrapper)):
     try:
         con, cur = db_connect()
         cur.execute(f"UPDATE users SET score=score+1 WHERE user_id={user_id}")
+        con.commit()
         cur.close()
         con.close()
         return "Success"

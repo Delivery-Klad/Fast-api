@@ -17,9 +17,9 @@ data = {
 
 res = requests.post(url='http://tele2-api.herokuapp.com/login', data=json.dumps(data))
 token = res.json()["token"]
+print(token)
 data = {"value": token}
-res = requests.get(url='http://tele2-api.herokuapp.com/docs#/default/login_login_post', data=json.dumps(data))
-print(res)
-res = requests.get(url='http://tele2-api.herokuapp.com/protected')
+headers = {"Authorization": f"Bearer {token}"}
+res = requests.get(url='http://tele2-api.herokuapp.com/protected', headers=headers)
 print(res.text)
 
