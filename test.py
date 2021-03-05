@@ -1,3 +1,6 @@
+import json
+import os
+
 import requests
 
 '''
@@ -8,11 +11,15 @@ for i in users:
 '''
 
 data = {
-  "username": "string",
-  "name": "string",
-  "surname": "string",
-  "group": "string",
-  "user_id": 0
+  'username': 'admin',
+  'password': 'root',
 }
-res = requests.post(url='http://127.0.0.1:8000/users/insert', data=data)
+
+res = requests.post(url='http://tele2-api.herokuapp.com/login', data=json.dumps(data))
+token = res.json()["token"]
+print(token)
+data = {"value": token}
+headers = {"Authorization": f"Bearer {token}"}
+res = requests.get(url='http://tele2-api.herokuapp.com/protected', headers=headers)
 print(res.text)
+
