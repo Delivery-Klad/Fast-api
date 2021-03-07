@@ -2,7 +2,6 @@ from typing import Optional
 from fastapi import FastAPI
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
-from starlette.requests import Request
 import psycopg2
 import datetime
 
@@ -62,10 +61,7 @@ def create_report(text: Text, implementer: Optional[str] = None):
     if text.text == '' or text.text is None:
         return JSONResponse(status_code=400)
     report = Assignees
-    if implementer:
-        report.Implementer = implementer
-    else:
-        report.Implementer = ""
+    report.Implementer = implementer if implementer else ""
     report.Reporter = ""
     return {'id': '123',
             'date': datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
@@ -79,10 +75,27 @@ def get_archived_reports():
     pass
 
 
+@app.get("/api/reports/{employee}")
+def get_report(employee, dateBegin: Optional[str] = None, dateEnd: Optional[str] = None):
+    pass
+
+
+@app.get("/api/reports/{id}")
+def get_report(id):
+    pass
+
+
+@app.put("/api/reports/{id}")
+def update_report(id):
+    pass
+
+
+@app.delete("/api/reports/{id}")
+def delete_report(id):
+    pass
+
+
 """
 ("/api/reports/employee/{employee}", getEmployeeReports).Methods("GET").Queries("dateBegin","{dateBegin}", "dateEnd", "{dateEnd}")
 ("/api/reports/employee/{employee}", getEmployeeReports).Methods("GET")
-("/api/reports/{id}", getReport).Methods("GET")
-("/api/reports/{id}", updateReport).Methods("PUT")
-("/api/reports/{id}", deleteReport).Methods("DELETE")
 """
