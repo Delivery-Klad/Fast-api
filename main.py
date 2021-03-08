@@ -1,12 +1,14 @@
 from typing import Optional
-from fastapi import FastAPI
+from fastapi import FastAPI, Depends
 from fastapi.responses import JSONResponse
 from models import *
+from Auth import Auth
 import psycopg2
 import datetime
 import os
 
 app = FastAPI()
+auth_handler = Auth()
 
 
 def db_connect():
@@ -30,7 +32,7 @@ def error_log(error):  # просто затычка, будет дописан�
 
 
 @app.get("/api/reports")
-def get_all_reports(sorted_by: Optional[str] = None):
+def get_all_reports(sorted_by: Optional[str] = None, reporter=Depends(auth_handler.auth_wrapper)):
     try:
         connect, cursor = db_connect()
         order = f" ORDER BY {sorted_by}" if sorted_by else ""
@@ -48,7 +50,7 @@ def get_all_reports(sorted_by: Optional[str] = None):
 
 
 @app.post("/api/reports")
-def create_report(text: Text, implementer: Optional[str] = None):
+def create_report(text: Text, implementer: Optional[str] = None, reporter=Depends(auth_handler.auth_wrapper)):
     try:
         if text.text == '' or text.text is None:
             return JSONResponse(status_code=400)
@@ -60,7 +62,7 @@ def create_report(text: Text, implementer: Optional[str] = None):
             report_id = 0
         report = Assignees
         report.Implementer = implementer if implementer else ""
-        report.Reporter = ""
+        report.Reporter = reporter
         date = datetime.datetime.now().strftime("%d-%m-%Y %H:%M:%S")
         archived = False
         title = text.title
@@ -80,7 +82,7 @@ def create_report(text: Text, implementer: Optional[str] = None):
 
 
 @app.get("/api/reports/archived")
-def get_archived_reports():
+def get_archived_reports(reporter=Depends(auth_handler.auth_wrapper)):
     try:
         connect, cursor = db_connect()
         cursor.execute(f"SELECT * FROM reports WHERE archived=true")
@@ -97,7 +99,8 @@ def get_archived_reports():
 
 
 @app.get("/api/reports/{employee}")
-def get_report(employee, dateBegin: Optional[str] = None, dateEnd: Optional[str] = None):
+def get_report(employee, dateBegin: Optional[str] = None, dateEnd: Optional[str] = None,
+               reporter=Depends(auth_handler.auth_wrapper)):
     try:
         connect, cursor = db_connect()
         begin = f" and date>to_timestamp('{dateBegin}', 'DD.MM.YYYY HH24:MI:SS')" if dateBegin else ""
@@ -116,7 +119,7 @@ def get_report(employee, dateBegin: Optional[str] = None, dateEnd: Optional[str]
 
 
 @app.get("/api/reports/{id}")
-def get_report(id):
+def get_report(id, reporter=Depends(auth_handler.auth_wrapper)):
     try:
         connect, cursor = db_connect()
         cursor.execute(f"SELECT * FROM reports WHERE id={id}")
@@ -134,7 +137,7 @@ def get_report(id):
 
 
 @app.put("/api/reports/{id}")
-def update_report(text: Text, id):
+def update_report(text: Text, id, reporter=Depends(auth_handler.auth_wrapper)):
     try:
         if text.text == '' or text.text is None:
             return JSONResponse(status_code=400)
@@ -156,7 +159,7 @@ def update_report(text: Text, id):
 
 
 @app.delete("/api/reports/{id}")
-def delete_report(id):
+def delete_report(id, reporter=Depends(auth_handler.auth_wrapper)):
     try:
         connect, cursor = db_connect()
         cursor.execute(f"DELETE FROM reports WHERE id={id}")
