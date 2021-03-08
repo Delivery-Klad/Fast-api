@@ -4,6 +4,7 @@ from fastapi.responses import JSONResponse
 from models import *
 import psycopg2
 import datetime
+import os
 
 app = FastAPI()
 
@@ -11,10 +12,10 @@ app = FastAPI()
 def db_connect():
     con = psycopg2.connect(
         host="ec2-52-213-167-210.eu-west-1.compute.amazonaws.com",
-        database="d2c0pa2od76s0h",
-        user="ygfmgmclajbdwt",
+        database=os.environ.get("DB"),
+        user=os.environ.get("DB_user"),
         port="5432",
-        password="75047d007fbada55ac72abf0f233aeefe1f6109f8ccfcc669d59cd537f15b675"
+        password=os.environ.get("DB_pass")
     )
     cur = con.cursor()
     return con, cur
@@ -57,12 +58,10 @@ def create_report(text: Text, implementer: Optional[str] = None):
             report_id = int(cursor.fetchone()[0]) + 1
         except:
             report_id = 0
-        print(report_id)
         report = Assignees
         report.Implementer = implementer if implementer else ""
         report.Reporter = ""
         date = datetime.datetime.now().strftime("%d-%m-%Y %H:%M:%S")
-        print(date)
         archived = False
         cursor.execute(f"INSERT INTO reports VALUES({report_id}, to_timestamp('{date}', 'DD.MM.YYYY HH24:MI:SS'), "
                        f"{archived}, '{report.Reporter}', '{report.Implementer}', '{text.text}')")
