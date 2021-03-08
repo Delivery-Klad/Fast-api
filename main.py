@@ -1,12 +1,14 @@
 from typing import Optional
-from fastapi import FastAPI
+from fastapi import FastAPI, Depends
 from fastapi.responses import JSONResponse
 from models import *
+from Auth import Auth
 import psycopg2
 import datetime
 import os
 
 app = FastAPI()
+auth_handler = Auth()
 
 
 def db_connect():
@@ -30,7 +32,7 @@ def error_log(error):  # просто затычка, будет дописан�
 
 
 @app.get("/api/reports")
-def get_all_reports(sorted_by: Optional[str] = None):
+def get_all_reports(sorted_by: Optional[str] = None, reporter=Depends(auth_handler.auth_wrapper)):
     try:
         connect, cursor = db_connect()
         order = f" ORDER BY {sorted_by}" if sorted_by else ""
@@ -38,8 +40,8 @@ def get_all_reports(sorted_by: Optional[str] = None):
         res = cursor.fetchall()
         res_dict = {}
         for j in res:
-            res_dict.update({"id": j[0], "date": j[1], "archived": j[2],
-                             "assigners": {"reporter": j[3], "implementer": j[4]}, "text": j[5]})
+            res_dict.update({"id": j[0], "date": j[1], "title": j[2], "archived": j[3],
+                             "assigners": {"reporter": j[4], "implementer": j[5]}, "text": j[6]})
         cursor.close()
         connect.close()
         return res_dict
@@ -48,7 +50,7 @@ def get_all_reports(sorted_by: Optional[str] = None):
 
 
 @app.post("/api/reports")
-def create_report(text: Text, implementer: Optional[str] = None):
+def create_report(text: Text, implementer: Optional[str] = None, reporter=Depends(auth_handler.auth_wrapper)):
     try:
         if text.text == '' or text.text is None:
             return JSONResponse(status_code=400)
@@ -60,33 +62,35 @@ def create_report(text: Text, implementer: Optional[str] = None):
             report_id = 0
         report = Assignees
         report.Implementer = implementer if implementer else ""
-        report.Reporter = ""
+        report.Reporter = reporter
         date = datetime.datetime.now().strftime("%d-%m-%Y %H:%M:%S")
         archived = False
+        title = text.title
         cursor.execute(f"INSERT INTO reports VALUES({report_id}, to_timestamp('{date}', 'DD.MM.YYYY HH24:MI:SS'), "
-                       f"{archived}, '{report.Reporter}', '{report.Implementer}', '{text.text}')")
+                       f"{title}, {archived}, '{report.Reporter}', '{report.Implementer}', '{text.text}')")
         connect.commit()
         cursor.close()
         connect.close()
-        return {'id': report_id,
-                'date': date,
-                'archived': archived,
-                'assignees': {'reporter': report.Reporter, 'implementer': report.Implementer},
-                'text': text.text}
+        return {"id": report_id,
+                "date": date,
+                "title": title,
+                "archived": archived,
+                "assignees": {"reporter": report.Reporter, "implementer": report.Implementer},
+                "text": text.text}
     except Exception as e:
         error_log(e)
 
 
 @app.get("/api/reports/archived")
-def get_archived_reports():
+def get_archived_reports(reporter=Depends(auth_handler.auth_wrapper)):
     try:
         connect, cursor = db_connect()
         cursor.execute(f"SELECT * FROM reports WHERE archived=true")
         res = cursor.fetchall()
         res_dict = {}
         for j in res:
-            res_dict.update({"id": j[0], "date": j[1], "archived": j[2],
-                             "assigners": {"reporter": j[3], "implementer": j[4]}, "text": j[5]})
+            res_dict.update({"id": j[0], "date": j[1],  "title": j[2], "archived": j[3],
+                             "assigners": {"reporter": j[4], "implementer": j[5]}, "text": j[6]})
         cursor.close()
         connect.close()
         return res_dict
@@ -95,7 +99,8 @@ def get_archived_reports():
 
 
 @app.get("/api/reports/{employee}")
-def get_report(employee, dateBegin: Optional[str] = None, dateEnd: Optional[str] = None):
+def get_report(employee, dateBegin: Optional[str] = None, dateEnd: Optional[str] = None,
+               reporter=Depends(auth_handler.auth_wrapper)):
     try:
         connect, cursor = db_connect()
         begin = f" and date>to_timestamp('{dateBegin}', 'DD.MM.YYYY HH24:MI:SS')" if dateBegin else ""
@@ -104,8 +109,8 @@ def get_report(employee, dateBegin: Optional[str] = None, dateEnd: Optional[str]
         res = cursor.fetchall()
         res_dict = {}
         for j in res:
-            res_dict.update({"id": j[0], "date": j[1], "archived": j[2],
-                             "assigners": {"reporter": j[3], "implementer": j[4]}, "text": j[5]})
+            res_dict.update({"id": j[0], "date": j[1], "title": j[2], "archived": j[3],
+                             "assigners": {"reporter": j[4], "implementer": j[5]}, "text": j[6]})
         cursor.close()
         connect.close()
         return res_dict
@@ -114,44 +119,47 @@ def get_report(employee, dateBegin: Optional[str] = None, dateEnd: Optional[str]
 
 
 @app.get("/api/reports/{id}")
-def get_report(id):
+def get_report(id, reporter=Depends(auth_handler.auth_wrapper)):
     try:
         connect, cursor = db_connect()
         cursor.execute(f"SELECT * FROM reports WHERE id={id}")
         res = cursor.fetchone()
         cursor.close()
         connect.close()
-        return {'id': res[0],
-                'date': res[1],
-                'archived': res[2],
-                'assignees': {'reporter': res[3], 'implementer': res[4]},
-                'text': res[5]}
+        return {"id": res[0],
+                "date": res[1],
+                "title": res[2],
+                "archived": res[3],
+                "assignees": {"reporter": res[4], "implementer": res[5]},
+                "text": res[6]}
     except Exception as e:
         error_log(e)
 
 
 @app.put("/api/reports/{id}")
-def update_report(id):
+def update_report(text: Text, id, reporter=Depends(auth_handler.auth_wrapper)):
     try:
+        if text.text == '' or text.text is None:
+            return JSONResponse(status_code=400)
         connect, cursor = db_connect()
-        cursor.execute(f"UPDATE reports SET text='здесь должен быть обязательный параметр, как я понял' "
-                       f"WHERE id={id}")
+        cursor.execute(f"UPDATE reports SET text='{text}' WHERE id={id}")
         connect.commit()
         cursor.execute(f"SELECT * FROM reports WHERE id={id}")
         res = cursor.fetchone()
         cursor.close()
         connect.close()
-        return {'id': res[0],
-                'date': res[1],
-                'archived': res[2],
-                'assignees': {'reporter': res[3], 'implementer': res[4]},
-                'text': res[5]}
+        return {"id": res[0],
+                "date": res[1],
+                "title": res[2],
+                "archived": res[3],
+                "assignees": {"reporter": res[4], "implementer": res[5]},
+                "text": res[6]}
     except Exception as e:
         error_log(e)
 
 
 @app.delete("/api/reports/{id}")
-def delete_report(id):
+def delete_report(id, reporter=Depends(auth_handler.auth_wrapper)):
     try:
         connect, cursor = db_connect()
         cursor.execute(f"DELETE FROM reports WHERE id={id}")
