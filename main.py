@@ -1,36 +1,10 @@
 from typing import Optional
 from fastapi import FastAPI
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel
+from models import *
 import psycopg2
 import datetime
 
-
-class Text(BaseModel):
-    text: Optional[str] = None
-
-
-class Assignees:
-    Reporter: str
-    Implementer: str
-
-
-class Claims:
-    Sub: str
-    ITLabInterface: str
-    ITLab: str
-    Scope: str
-
-
-"""
-class Report:
-    ID: int
-    ReportSender: str
-    Assignees: Assignees
-    Date: str
-    Text: str
-    Archived: bool
-"""
 
 app = FastAPI()
 
@@ -72,7 +46,9 @@ def create_report(text: Text, implementer: Optional[str] = None):
 
 @app.get("/api/reports/archived")
 def get_archived_reports():
-    pass
+    connect, cursor = db_connect()
+    cursor.close()
+    connect.close()
 
 
 @app.get("/api/reports/{employee}")
