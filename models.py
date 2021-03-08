@@ -3,6 +3,7 @@ from typing import Optional
 
 
 class Text(BaseModel):
+    title: Optional[str] = None
     text: Optional[str] = None
 
 

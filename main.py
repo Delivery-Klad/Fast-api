@@ -38,8 +38,8 @@ def get_all_reports(sorted_by: Optional[str] = None):
         res = cursor.fetchall()
         res_dict = {}
         for j in res:
-            res_dict.update({"id": j[0], "date": j[1], "archived": j[2],
-                             "assigners": {"reporter": j[3], "implementer": j[4]}, "text": j[5]})
+            res_dict.update({"id": j[0], "date": j[1], "title": j[2], "archived": j[3],
+                             "assigners": {"reporter": j[4], "implementer": j[5]}, "text": j[6]})
         cursor.close()
         connect.close()
         return res_dict
@@ -63,16 +63,18 @@ def create_report(text: Text, implementer: Optional[str] = None):
         report.Reporter = ""
         date = datetime.datetime.now().strftime("%d-%m-%Y %H:%M:%S")
         archived = False
+        title = text.title
         cursor.execute(f"INSERT INTO reports VALUES({report_id}, to_timestamp('{date}', 'DD.MM.YYYY HH24:MI:SS'), "
-                       f"{archived}, '{report.Reporter}', '{report.Implementer}', '{text.text}')")
+                       f"{title}, {archived}, '{report.Reporter}', '{report.Implementer}', '{text.text}')")
         connect.commit()
         cursor.close()
         connect.close()
-        return {'id': report_id,
-                'date': date,
-                'archived': archived,
-                'assignees': {'reporter': report.Reporter, 'implementer': report.Implementer},
-                'text': text.text}
+        return {"id": report_id,
+                "date": date,
+                "title": title,
+                "archived": archived,
+                "assignees": {"reporter": report.Reporter, "implementer": report.Implementer},
+                "text": text.text}
     except Exception as e:
         error_log(e)
 
@@ -85,8 +87,8 @@ def get_archived_reports():
         res = cursor.fetchall()
         res_dict = {}
         for j in res:
-            res_dict.update({"id": j[0], "date": j[1], "archived": j[2],
-                             "assigners": {"reporter": j[3], "implementer": j[4]}, "text": j[5]})
+            res_dict.update({"id": j[0], "date": j[1],  "title": j[2], "archived": j[3],
+                             "assigners": {"reporter": j[4], "implementer": j[5]}, "text": j[6]})
         cursor.close()
         connect.close()
         return res_dict
@@ -104,8 +106,8 @@ def get_report(employee, dateBegin: Optional[str] = None, dateEnd: Optional[str]
         res = cursor.fetchall()
         res_dict = {}
         for j in res:
-            res_dict.update({"id": j[0], "date": j[1], "archived": j[2],
-                             "assigners": {"reporter": j[3], "implementer": j[4]}, "text": j[5]})
+            res_dict.update({"id": j[0], "date": j[1], "title": j[2], "archived": j[3],
+                             "assigners": {"reporter": j[4], "implementer": j[5]}, "text": j[6]})
         cursor.close()
         connect.close()
         return res_dict
@@ -121,31 +123,34 @@ def get_report(id):
         res = cursor.fetchone()
         cursor.close()
         connect.close()
-        return {'id': res[0],
-                'date': res[1],
-                'archived': res[2],
-                'assignees': {'reporter': res[3], 'implementer': res[4]},
-                'text': res[5]}
+        return {"id": res[0],
+                "date": res[1],
+                "title": res[2],
+                "archived": res[3],
+                "assignees": {"reporter": res[4], "implementer": res[5]},
+                "text": res[6]}
     except Exception as e:
         error_log(e)
 
 
 @app.put("/api/reports/{id}")
-def update_report(id):
+def update_report(text: Text, id):
     try:
+        if text.text == '' or text.text is None:
+            return JSONResponse(status_code=400)
         connect, cursor = db_connect()
-        cursor.execute(f"UPDATE reports SET text='здесь должен быть обязательный параметр, как я понял' "
-                       f"WHERE id={id}")
+        cursor.execute(f"UPDATE reports SET text='{text}' WHERE id={id}")
         connect.commit()
         cursor.execute(f"SELECT * FROM reports WHERE id={id}")
         res = cursor.fetchone()
         cursor.close()
         connect.close()
-        return {'id': res[0],
-                'date': res[1],
-                'archived': res[2],
-                'assignees': {'reporter': res[3], 'implementer': res[4]},
-                'text': res[5]}
+        return {"id": res[0],
+                "date": res[1],
+                "title": res[2],
+                "archived": res[3],
+                "assignees": {"reporter": res[4], "implementer": res[5]},
+                "text": res[6]}
     except Exception as e:
         error_log(e)
 
