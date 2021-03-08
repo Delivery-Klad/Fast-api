@@ -1,36 +1,10 @@
 from typing import Optional
 from fastapi import FastAPI
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel
+from models import *
 import psycopg2
 import datetime
-
-
-class Text(BaseModel):
-    text: Optional[str] = None
-
-
-class Assignees:
-    Reporter: str
-    Implementer: str
-
-
-class Claims:
-    Sub: str
-    ITLabInterface: str
-    ITLab: str
-    Scope: str
-
-
-"""
-class Report:
-    ID: int
-    ReportSender: str
-    Assignees: Assignees
-    Date: str
-    Text: str
-    Archived: bool
-"""
+import os
 
 app = FastAPI()
 
@@ -38,64 +12,152 @@ app = FastAPI()
 def db_connect():
     con = psycopg2.connect(
         host="ec2-52-213-167-210.eu-west-1.compute.amazonaws.com",
-        database="d2c0pa2od76s0h",
-        user="ygfmgmclajbdwt",
+        database=os.environ.get("DB"),
+        user=os.environ.get("DB_user"),
         port="5432",
-        password="75047d007fbada55ac72abf0f233aeefe1f6109f8ccfcc669d59cd537f15b675"
+        password=os.environ.get("DB_pass")
     )
     cur = con.cursor()
     return con, cur
 
 
+def error_log(error):  # просто затычка, будет дописано
+    try:
+        print(error)
+    except Exception as e:
+        print(e)
+        print("Возникла ошибка при обработке errorLog (Это вообще как?)")
+
+
 @app.get("/api/reports")
 def get_all_reports(sorted_by: Optional[str] = None):
-    return {'id': '#present',
-            'date': '#present',
-            'archived': False,
-            'assignees': {'reporter': '', 'implementer': ''},
-            'text': "some text"}
+    try:
+        connect, cursor = db_connect()
+        order = f" ORDER BY {sorted_by}" if sorted_by else ""
+        cursor.execute(f"SELECT * FROM reports{order}")
+        res = cursor.fetchall()
+        res_dict = {}
+        for j in res:
+            res_dict.update({"id": j[0], "date": j[1], "archived": j[2],
+                             "assigners": {"reporter": j[3], "implementer": j[4]}, "text": j[5]})
+        cursor.close()
+        connect.close()
+        return res_dict
+    except Exception as e:
+        error_log(e)
 
 
 @app.post("/api/reports")
 def create_report(text: Text, implementer: Optional[str] = None):
-    if text.text == '' or text.text is None:
-        return JSONResponse(status_code=400)
-    report = Assignees
-    report.Implementer = implementer if implementer else ""
-    report.Reporter = ""
-    return {'id': '123',
-            'date': datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-            'archived': False,
-            'assignees': {'reporter': report.Reporter, 'implementer': report.Implementer},
-            'text': text.text}
+    try:
+        if text.text == '' or text.text is None:
+            return JSONResponse(status_code=400)
+        connect, cursor = db_connect()
+        cursor.execute("SELECT MAX(id) FROM reports")
+        try:
+            report_id = int(cursor.fetchone()[0]) + 1
+        except:
+            report_id = 0
+        report = Assignees
+        report.Implementer = implementer if implementer else ""
+        report.Reporter = ""
+        date = datetime.datetime.now().strftime("%d-%m-%Y %H:%M:%S")
+        archived = False
+        cursor.execute(f"INSERT INTO reports VALUES({report_id}, to_timestamp('{date}', 'DD.MM.YYYY HH24:MI:SS'), "
+                       f"{archived}, '{report.Reporter}', '{report.Implementer}', '{text.text}')")
+        connect.commit()
+        cursor.close()
+        connect.close()
+        return {'id': report_id,
+                'date': date,
+                'archived': archived,
+                'assignees': {'reporter': report.Reporter, 'implementer': report.Implementer},
+                'text': text.text}
+    except Exception as e:
+        error_log(e)
 
 
 @app.get("/api/reports/archived")
 def get_archived_reports():
-    pass
+    try:
+        connect, cursor = db_connect()
+        cursor.execute(f"SELECT * FROM reports WHERE archived=true")
+        res = cursor.fetchall()
+        res_dict = {}
+        for j in res:
+            res_dict.update({"id": j[0], "date": j[1], "archived": j[2],
+                             "assigners": {"reporter": j[3], "implementer": j[4]}, "text": j[5]})
+        cursor.close()
+        connect.close()
+        return res_dict
+    except Exception as e:
+        error_log(e)
 
 
 @app.get("/api/reports/{employee}")
 def get_report(employee, dateBegin: Optional[str] = None, dateEnd: Optional[str] = None):
-    pass
+    try:
+        connect, cursor = db_connect()
+        begin = f" and date>to_timestamp('{dateBegin}', 'DD.MM.YYYY HH24:MI:SS')" if dateBegin else ""
+        end = f" and date>to_timestamp('{dateEnd}', 'DD.MM.YYYY HH24:MI:SS')" if dateEnd else ""
+        cursor.execute(f"SELECT * FROM reports WHERE implementer='{employee}'{begin}{end}")
+        res = cursor.fetchall()
+        res_dict = {}
+        for j in res:
+            res_dict.update({"id": j[0], "date": j[1], "archived": j[2],
+                             "assigners": {"reporter": j[3], "implementer": j[4]}, "text": j[5]})
+        cursor.close()
+        connect.close()
+        return res_dict
+    except Exception as e:
+        error_log(e)
 
 
 @app.get("/api/reports/{id}")
 def get_report(id):
-    pass
+    try:
+        connect, cursor = db_connect()
+        cursor.execute(f"SELECT * FROM reports WHERE id={id}")
+        res = cursor.fetchone()
+        cursor.close()
+        connect.close()
+        return {'id': res[0],
+                'date': res[1],
+                'archived': res[2],
+                'assignees': {'reporter': res[3], 'implementer': res[4]},
+                'text': res[5]}
+    except Exception as e:
+        error_log(e)
 
 
 @app.put("/api/reports/{id}")
 def update_report(id):
-    pass
+    try:
+        connect, cursor = db_connect()
+        cursor.execute(f"UPDATE reports SET text='здесь должен быть обязательный параметр, как я понял' "
+                       f"WHERE id={id}")
+        connect.commit()
+        cursor.execute(f"SELECT * FROM reports WHERE id={id}")
+        res = cursor.fetchone()
+        cursor.close()
+        connect.close()
+        return {'id': res[0],
+                'date': res[1],
+                'archived': res[2],
+                'assignees': {'reporter': res[3], 'implementer': res[4]},
+                'text': res[5]}
+    except Exception as e:
+        error_log(e)
 
 
 @app.delete("/api/reports/{id}")
 def delete_report(id):
-    pass
-
-
-"""
-("/api/reports/employee/{employee}", getEmployeeReports).Methods("GET").Queries("dateBegin","{dateBegin}", "dateEnd", "{dateEnd}")
-("/api/reports/employee/{employee}", getEmployeeReports).Methods("GET")
-"""
+    try:
+        connect, cursor = db_connect()
+        cursor.execute(f"DELETE FROM reports WHERE id={id}")
+        connect.commit()
+        cursor.close()
+        connect.close()
+        return "some body"
+    except Exception as e:
+        error_log(e)

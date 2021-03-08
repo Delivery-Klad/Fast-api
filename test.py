@@ -1,25 +1,18 @@
-import json
-import os
+import psycopg2
 
-import requests
 
-'''
-res = requests.get("http://127.0.0.1:8000/users/")
-users = res.json()
-for i in users:
-    print(i["user"])
-'''
+def db_connect():
+    con = psycopg2.connect(
+        host="ec2-52-213-167-210.eu-west-1.compute.amazonaws.com",
+        database="d2c0pa2od76s0h",
+        user="ygfmgmclajbdwt",
+        port="5432",
+        password="75047d007fbada55ac72abf0f233aeefe1f6109f8ccfcc669d59cd537f15b675"
+    )
+    cur = con.cursor()
+    cur.execute("select column_name,data_type from information_schema.columns where table_name = 'reports'")
+    print(cur.fetchall())
+    return con, cur
 
-data = {
-  'username': 'admin',
-  'password': 'root',
-}
 
-res = requests.post(url='http://tele2-api.herokuapp.com/login', data=json.dumps(data))
-token = res.json()["token"]
-print(token)
-data = {"value": token}
-headers = {"Authorization": f"Bearer {token}"}
-res = requests.get(url='http://tele2-api.herokuapp.com/protected', headers=headers)
-print(res.text)
-
+db_connect()

@@ -1,11 +1,11 @@
 from pydantic import BaseModel
+from typing import Optional
 
 
-class User(BaseModel):
-    user_id: int
-    score: int
+class Text(BaseModel):
+    text: Optional[str] = None
 
 
-class AuthDetails(BaseModel):
-    username: str
-    password: str
+class Assignees:
+    Reporter: str
+    Implementer: str
