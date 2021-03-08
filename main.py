@@ -57,10 +57,12 @@ def create_report(text: Text, implementer: Optional[str] = None):
             report_id = int(cursor.fetchone()[0]) + 1
         except:
             report_id = 0
+        print(report_id)
         report = Assignees
         report.Implementer = implementer if implementer else ""
         report.Reporter = ""
-        date = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        date = datetime.datetime.now().strftime("%d-%m-%Y %H:%M:%S")
+        print(date)
         archived = False
         cursor.execute(f"INSERT INTO reports VALUES({report_id}, to_timestamp('{date}', 'DD.MM.YYYY HH24:MI:SS'), "
                        f"{archived}, '{report.Reporter}', '{report.Implementer}', '{text.text}')")
