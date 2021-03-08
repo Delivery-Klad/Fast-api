@@ -32,7 +32,8 @@ def error_log(error):  # просто затычка, будет дописан�
 def get_all_reports(sorted_by: Optional[str] = None):
     try:
         connect, cursor = db_connect()
-        cursor.execute(f"SELECT * FROM reports ORDER BY {sorted_by}")
+        order = f" ORDER BY {sorted_by}" if sorted_by else ""
+        cursor.execute(f"SELECT * FROM reports{order}")
         res = cursor.fetchall()
         res_dict = {}
         for j in res:
@@ -98,7 +99,7 @@ def get_report(employee, dateBegin: Optional[str] = None, dateEnd: Optional[str]
         connect, cursor = db_connect()
         begin = f" and date>to_timestamp('{dateBegin}', 'DD.MM.YYYY HH24:MI:SS')" if dateBegin else ""
         end = f" and date>to_timestamp('{dateEnd}', 'DD.MM.YYYY HH24:MI:SS')" if dateEnd else ""
-        cursor.execute(f"SELECT * FROM reports WHERE implementer={employee}{begin}{end}")
+        cursor.execute(f"SELECT * FROM reports WHERE implementer='{employee}'{begin}{end}")
         res = cursor.fetchall()
         res_dict = {}
         for j in res:
@@ -159,9 +160,3 @@ def delete_report(id):
         return "some body"
     except Exception as e:
         error_log(e)
-
-
-"""
-("/api/reports/employee/{employee}", getEmployeeReports).Methods("GET").Queries("dateBegin","{dateBegin}", "dateEnd", "{dateEnd}")
-("/api/reports/employee/{employee}", getEmployeeReports).Methods("GET")
-"""
