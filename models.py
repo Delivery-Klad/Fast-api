@@ -1,4 +1,5 @@
 from pydantic import BaseModel
+from typing import Optional
 
 
 class Text(BaseModel):
@@ -8,10 +9,3 @@ class Text(BaseModel):
 class Assignees:
     Reporter: str
     Implementer: str
-
-
-class Claims:
-    Sub: str
-    ITLabInterface: str
-    ITLab: str
-    Scope: str
