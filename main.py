@@ -41,6 +41,7 @@ def error_log(error):  # просто затычка, будет дописан�
 
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request, exc):
+    print(request)
     return PlainTextResponse(str(exc), status_code=401)
 
 
