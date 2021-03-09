@@ -41,8 +41,11 @@ def error_log(error):  # просто затычка, будет дописан�
 
 @app.exception_handler(StarletteHTTPException)
 async def http_exception_handler(request, exc):
-    print("exception")
-    return PlainTextResponse(str(exc.detail), status_code=401)
+    print(exc.detail)
+    if "Not authenticated" in str(exc.detail):
+        return PlainTextResponse(str(exc.detail), status_code=401)
+    else:
+        return PlainTextResponse(str(exc.detail), status_code=exc.status_code)
 
 
 @app.get("/api/reports")
