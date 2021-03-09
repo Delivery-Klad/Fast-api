@@ -1,6 +1,7 @@
 from typing import Optional
 from fastapi import FastAPI, Depends
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, PlainTextResponse
+from fastapi.exceptions import RequestValidationError
 from models import *
 from Auth import Auth
 import psycopg2
@@ -36,6 +37,11 @@ def error_log(error):  # просто затычка, будет дописан�
     except Exception as e:
         print(e)
         print("Возникла ошибка при обработке errorLog (Это вообще как?)")
+
+
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request, exc):
+    return PlainTextResponse(str(exc), status_code=401)
 
 
 @app.get("/api/reports")
