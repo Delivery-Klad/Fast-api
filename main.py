@@ -1,7 +1,7 @@
 from typing import Optional
 from fastapi import FastAPI, Depends
 from fastapi.responses import JSONResponse, PlainTextResponse
-from fastapi.exceptions import RequestValidationError
+from starlette.exceptions import HTTPException as StarletteHTTPException
 from models import *
 from Auth import Auth
 import psycopg2
@@ -39,10 +39,10 @@ def error_log(error):  # просто затычка, будет дописан�
         print("Возникла ошибка при обработке errorLog (Это вообще как?)")
 
 
-@app.exception_handler(RequestValidationError)
-async def validation_exception_handler(request, exc):
-    print(request)
-    return PlainTextResponse(str(exc), status_code=401)
+@app.exception_handler(StarletteHTTPException)
+async def http_exception_handler(request, exc):
+    print("exception")
+    return PlainTextResponse(str(exc.detail), status_code=401)
 
 
 @app.get("/api/reports")
