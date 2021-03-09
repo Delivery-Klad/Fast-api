@@ -1,6 +1,7 @@
 from typing import Optional
 from fastapi import FastAPI, Depends
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, PlainTextResponse
+from starlette.exceptions import HTTPException as StarletteHTTPException
 from models import *
 from Auth import Auth
 import psycopg2
@@ -36,6 +37,15 @@ def error_log(error):  # просто затычка, будет дописан�
     except Exception as e:
         print(e)
         print("Возникла ошибка при обработке errorLog (Это вообще как?)")
+
+
+@app.exception_handler(StarletteHTTPException)
+async def http_exception_handler(request, exc):
+    print(exc.detail)
+    if "Not authenticated" in str(exc.detail):
+        return PlainTextResponse(str(exc.detail), status_code=401)
+    else:
+        return PlainTextResponse(str(exc.detail), status_code=exc.status_code)
 
 
 @app.get("/api/reports")
