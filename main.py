@@ -23,6 +23,13 @@ def db_connect():
     return con, cur
 
 
+def isAdmin(user):
+    try:
+        return True
+    except Exception as e:
+        error_log(e)
+
+
 def error_log(error):  # просто затычка, будет дописано
     try:
         print(error)
@@ -36,15 +43,22 @@ def get_all_reports(sorted_by: Optional[str] = None, reporter=Depends(auth_handl
     try:
         connect, cursor = db_connect()
         order = f" ORDER BY {sorted_by}" if sorted_by else ""
-        cursor.execute(f"SELECT * FROM reports{order}")
+        user = reporter
+        if isAdmin(reporter):
+            cursor.execute(f"SELECT * FROM reports WHERE archived=false{order}")
+        else:
+            cursor.execute(f"SELECT * FROM reports WHERE reporter='{user}' OR implementer='{user}'{order}")
         res = cursor.fetchall()
         res_dict = {}
-        for j in res:
-            res_dict.update({"id": j[0], "date": j[1], "title": j[2], "archived": j[3],
-                             "assigners": {"reporter": j[4], "implementer": j[5]}, "text": j[6]})
-        cursor.close()
-        connect.close()
-        return res_dict
+        try:
+            for j in res:
+                res_dict.update({"id": j[0], "date": j[1], "title": j[2], "archived": j[3],
+                                 "assigners": {"reporter": j[4], "implementer": j[5]}, "text": j[6]})
+            cursor.close()
+            connect.close()
+            return res_dict
+        except IndexError:
+            return JSONResponse(status_code=403)
     except Exception as e:
         error_log(e)
 
@@ -85,15 +99,22 @@ def create_report(text: Text, implementer: Optional[str] = None, reporter=Depend
 def get_archived_reports(reporter=Depends(auth_handler.auth_wrapper)):
     try:
         connect, cursor = db_connect()
-        cursor.execute(f"SELECT * FROM reports WHERE archived=true")
+        user = reporter
+        if isAdmin(reporter):
+            cursor.execute(f"SELECT * FROM reports WHERE archived=true")
+        else:
+            cursor.execute(f"SELECT * FROM reports WHERE (reporter='{user}' OR implementer='{user}') AND archived=true")
         res = cursor.fetchall()
         res_dict = {}
-        for j in res:
-            res_dict.update({"id": j[0], "date": j[1],  "title": j[2], "archived": j[3],
-                             "assigners": {"reporter": j[4], "implementer": j[5]}, "text": j[6]})
-        cursor.close()
-        connect.close()
-        return res_dict
+        try:
+            for j in res:
+                res_dict.update({"id": j[0], "date": j[1],  "title": j[2], "archived": j[3],
+                                 "assigners": {"reporter": j[4], "implementer": j[5]}, "text": j[6]})
+            cursor.close()
+            connect.close()
+            return res_dict
+        except IndexError:
+            return JSONResponse(status_code=403)
     except Exception as e:
         error_log(e)
 
@@ -105,7 +126,12 @@ def get_report(employee, dateBegin: Optional[str] = None, dateEnd: Optional[str]
         connect, cursor = db_connect()
         begin = f" and date>to_timestamp('{dateBegin}', 'DD.MM.YYYY HH24:MI:SS')" if dateBegin else ""
         end = f" and date>to_timestamp('{dateEnd}', 'DD.MM.YYYY HH24:MI:SS')" if dateEnd else ""
-        cursor.execute(f"SELECT * FROM reports WHERE implementer='{employee}'{begin}{end}")
+        if isAdmin(reporter) or employee == reporter:
+            cursor.execute(f"SELECT * FROM reports WHERE implementer='{employee}'{begin}{end}")
+        else:
+            cursor.close()
+            connect.close()
+            return JSONResponse(status_code=403)
         res = cursor.fetchall()
         res_dict = {}
         for j in res:
@@ -122,16 +148,23 @@ def get_report(employee, dateBegin: Optional[str] = None, dateEnd: Optional[str]
 def get_report(id, reporter=Depends(auth_handler.auth_wrapper)):
     try:
         connect, cursor = db_connect()
-        cursor.execute(f"SELECT * FROM reports WHERE id={id}")
+        if isAdmin(reporter):
+            cursor.execute(f"SELECT * FROM reports WHERE id={id}")
+        else:
+            cursor.execute(f"SELECT * FROM reports WHERE id={id} AND (reporter='{reporter}' OR "
+                           f"implementer='{reporter}')")
         res = cursor.fetchone()
         cursor.close()
         connect.close()
-        return {"id": res[0],
-                "date": res[1],
-                "title": res[2],
-                "archived": res[3],
-                "assignees": {"reporter": res[4], "implementer": res[5]},
-                "text": res[6]}
+        try:
+            return {"id": res[0],
+                    "date": res[1],
+                    "title": res[2],
+                    "archived": res[3],
+                    "assignees": {"reporter": res[4], "implementer": res[5]},
+                    "text": res[6]}
+        except IndexError:
+            return JSONResponse(status_code=403)
     except Exception as e:
         error_log(e)
 
@@ -142,18 +175,25 @@ def update_report(text: Text, id, reporter=Depends(auth_handler.auth_wrapper)):
         if text.text == '' or text.text is None:
             return JSONResponse(status_code=400)
         connect, cursor = db_connect()
-        cursor.execute(f"UPDATE reports SET text='{text}' WHERE id={id}")
+        if isAdmin(reporter):
+            cursor.execute(f"UPDATE reports SET text='{text}' WHERE id={id}")
+        else:
+            cursor.execute(f"UPDATE reports SET text='{text}' WHERE id={id} AND (reporter='{reporter}' OR "
+                           f"implementer='{reporter}')")
         connect.commit()
         cursor.execute(f"SELECT * FROM reports WHERE id={id}")
         res = cursor.fetchone()
         cursor.close()
         connect.close()
-        return {"id": res[0],
-                "date": res[1],
-                "title": res[2],
-                "archived": res[3],
-                "assignees": {"reporter": res[4], "implementer": res[5]},
-                "text": res[6]}
+        try:
+            return {"id": res[0],
+                    "date": res[1],
+                    "title": res[2],
+                    "archived": res[3],
+                    "assignees": {"reporter": res[4], "implementer": res[5]},
+                    "text": res[6]}
+        except IndexError:
+            return JSONResponse(status_code=403)
     except Exception as e:
         error_log(e)
 
@@ -162,10 +202,14 @@ def update_report(text: Text, id, reporter=Depends(auth_handler.auth_wrapper)):
 def delete_report(id, reporter=Depends(auth_handler.auth_wrapper)):
     try:
         connect, cursor = db_connect()
-        cursor.execute(f"DELETE FROM reports WHERE id={id}")
+        if isAdmin(reporter):
+            cursor.execute(f"DELETE FROM reports WHERE id={id}")
+        else:
+            cursor.execute(f"DELETE FROM reports WHERE id={id} AND (reporter='{reporter}' OR "
+                           f"implementer='{reporter}')")
         connect.commit()
         cursor.close()
         connect.close()
-        return "some body"
+        return JSONResponse(status_code=200)
     except Exception as e:
         error_log(e)
